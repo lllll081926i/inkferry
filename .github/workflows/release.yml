@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish, for example v1.0.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        run: CGO_ENABLED=0 go test ./...
+
+      - name: Resolve version
+        env:
+          REQUESTED_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="$REQUESTED_TAG"
+          else
+            VERSION="$GITHUB_REF_NAME"
+          fi
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $VERSION" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Package release
+        run: bash scripts/package.sh "$VERSION"
+
+      - name: Keep packaged files as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InkFerry-${{ env.VERSION }}
+          path: dist/release/
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" dist/release/* --clobber
+          else
+            gh release create "$VERSION" dist/release/* \
+              --title "InkFerry $VERSION" \
+              --generate-notes
+          fi

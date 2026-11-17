@@ -1,0 +1,19 @@
+# Build output
+/dist/
+/snapshots/
+*.exe
+*.test
+*.out
+
+# Local tooling and editor state
+/.workbuddy/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local environment and credentials
+.env
+.env.*
+*.pem
+*.key
