@@ -17,6 +17,7 @@ func stubCalibre(t *testing.T, body string) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the stub is a shell script")
 	}
+	isolate(t)
 	dir := CalibreDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)

@@ -19,9 +19,7 @@ import (
 
 func isolatedManager(t *testing.T, notify func()) *Manager {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("APPDATA", dir)
-	t.Setenv("XDG_CONFIG_HOME", dir)
+	isolate(t)
 	m := NewManager(notify)
 	m.Close()
 	return m

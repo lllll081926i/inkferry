@@ -9,31 +9,30 @@ import (
 	"runtime"
 )
 
-// BaseDir is where InkFerry keeps its working files, for example
-// %APPDATA%\InkFerry on Windows.
+// BaseDir is the folder the optional Calibre component is unpacked into, for
+// example %APPDATA%\InkFerry on Windows. The app itself is portable: it never
+// creates this folder until the user asks to install the component, and it
+// writes no configuration, log or cache files anywhere.
 func BaseDir() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	base := filepath.Join(dir, "InkFerry")
-	if err := os.MkdirAll(base, 0o755); err != nil {
-		return "", err
-	}
-	return base, nil
+	return filepath.Join(dir, "InkFerry"), nil
 }
 
-// TempDir is the scratch folder conversions copy their input to.
+// TempDir is the scratch folder conversions copy their input to. It lives in
+// the system's temporary directory, so a portable run leaves nothing behind
+// outside it. INKFERRY_TMP overrides the location for tests.
 func TempDir() (string, error) {
-	base, err := BaseDir()
-	if err != nil {
+	root := os.Getenv("INKFERRY_TMP")
+	if root == "" {
+		root = filepath.Join(os.TempDir(), "InkFerry")
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
 		return "", err
 	}
-	dir := filepath.Join(base, "temp")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return dir, nil
+	return root, nil
 }
 
 // CalibreDir holds the downloaded Calibre.

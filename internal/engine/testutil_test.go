@@ -2,6 +2,8 @@ package engine
 
 import (
 	"archive/zip"
+	"path/filepath"
+	"testing"
 	"time"
 )
 
@@ -21,3 +23,14 @@ func openZip(path string) (map[string]bool, error) {
 
 // waitDone lets a just-started task finish before the next check.
 func waitDone(m *Manager) { time.Sleep(50 * time.Millisecond) }
+
+// isolate points the scratch and component folders at a per-test directory,
+// so a test never writes beside the real one. The app is portable: outside a
+// component install it touches nothing but the temp folder.
+func isolate(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("INKFERRY_TMP", filepath.Join(dir, "temp"))
+	t.Setenv("APPDATA", dir)
+	t.Setenv("XDG_CONFIG_HOME", dir)
+}

@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# Build and package every supported InkFerry target.
+# Build the portable InkFerry releases for every supported target.
 #
 # Usage:
 #   ./scripts/package.sh v1.0.0
 #   VERSION=v1.0.0 ./scripts/package.sh
 #
-# Output: dist/release/*.zip, *.tar.gz and SHA256SUMS.txt
+# Output in dist/release/, no archives:
+#   InkFerry-<version>-<platform>-gui[.exe]   desktop app
+#   InkFerry-<version>-<platform>-cli[.exe]   ferry command-line converter
+#   SHA256SUMS.txt
+#
+# Every file is a single self-contained executable: no installer, no DLL, no
+# data folder, no log file, no documentation.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,87 +26,54 @@ if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
 fi
 
 OUT="$ROOT/dist/release"
-STAGE="$ROOT/dist/stage"
-rm -rf "$OUT" "$STAGE"
-mkdir -p "$OUT" "$STAGE"
+rm -rf "$OUT"
+mkdir -p "$OUT"
 
-GUI_LDFLAGS=(-trimpath -ldflags "-s -w -X main.version=$VERSION")
-WIN_LDFLAGS=(-trimpath -ldflags "-s -w -H windowsgui -X main.version=$VERSION")
-CLI_LDFLAGS=(-trimpath -ldflags "-s -w")
+ASSETS=()
 
+# build <goos> <goarch> <asset name> <package> <gui|cli>
+# Windows GUI builds need the windowsgui subsystem: without it the linker
+# marks the binary as a console program and Windows opens a console window
+# beside the app. -s -w strips the symbol table and DWARF data.
 build() {
   local goos="$1" goarch="$2" output="$3" pkg="$4" kind="$5"
-  local flags=("${GUI_LDFLAGS[@]}")
-  if [[ "$kind" == "windows-gui" ]]; then
-    flags=("${WIN_LDFLAGS[@]}")
-  elif [[ "$kind" == "cli" ]]; then
-    flags=("${CLI_LDFLAGS[@]}")
+  local ldflags="-s -w"
+  if [[ "$kind" == "gui" ]]; then
+    ldflags="-s -w -X main.version=$VERSION"
+    if [[ "$goos" == "windows" ]]; then
+      ldflags="-s -w -H windowsgui -X main.version=$VERSION"
+    fi
   fi
   echo "  building $output"
-  CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build "${flags[@]}" -o "$output" "$pkg"
+  CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+    go build -trimpath -ldflags "$ldflags" -o "$OUT/$output" "$pkg"
+  chmod 0755 "$OUT/$output"
+  ASSETS+=("$output")
 }
 
-archive_dir() {
-  local dir="$1" ext="$2" archive="$3"
-  case "$ext" in
-    zip)
-      if command -v zip >/dev/null 2>&1; then
-        (cd "$(dirname "$dir")" && zip -qr "$archive" "$(basename "$dir")")
-      elif command -v powershell.exe >/dev/null 2>&1; then
-        local win_dir win_archive
-        win_dir="$(cygpath -w "$dir")"
-        win_archive="$(cygpath -w "$archive")"
-        powershell.exe -NoProfile -Command \
-          "Compress-Archive -LiteralPath '$win_dir' -DestinationPath '$win_archive' -Force"
-      else
-        echo "error: zip is required to package Windows builds" >&2
-        exit 1
-      fi
-      ;;
-    tar.gz)
-      tar -C "$(dirname "$dir")" -czf "$archive" "$(basename "$dir")"
-      ;;
-    *)
-      echo "error: unknown archive type $ext" >&2
-      exit 1
-      ;;
-  esac
-}
-
-package_target() {
-  local goos="$1" goarch="$2" label="$3" ext="$4"
-  local name="InkFerry-${VERSION}-${label}"
-  local dir="$STAGE/$name"
-  local suffix="" gui="inkferry"
-  if [[ "$goos" == windows ]]; then
+target() {
+  local goos="$1" goarch="$2" label="$3" suffix=""
+  if [[ "$goos" == "windows" ]]; then
     suffix=".exe"
-    gui="InkFerry"
   fi
-  mkdir -p "$dir"
-
-  build "$goos" "$goarch" "$dir/$gui$suffix" . gui
-  build "$goos" "$goarch" "$dir/ferry$suffix" ./cmd/ferry cli
-  build "$goos" "$goarch" "$dir/ferryinstall$suffix" ./cmd/ferryinstall cli
-  cp README.md LICENSE CHANGELOG.md "$dir/"
-  cp -R docs "$dir/"
-
-  archive_dir "$dir" "$ext" "$OUT/$name.$ext"
-  echo "packaged $name.$ext"
+  build "$goos" "$goarch" "InkFerry-$VERSION-$label-gui$suffix" . gui
+  build "$goos" "$goarch" "InkFerry-$VERSION-$label-cli$suffix" ./cmd/ferry cli
 }
 
 echo "InkFerry $VERSION"
-echo "Building release archives..."
-package_target windows amd64 windows-amd64 zip
-package_target windows arm64 windows-arm64 zip
-package_target linux amd64 linux-amd64 tar.gz
-package_target darwin arm64 macos-arm64 tar.gz
+echo "Building portable single-file releases..."
+
+target windows amd64 windows-amd64
+target windows arm64 windows-arm64
+target linux amd64 linux-amd64
+target darwin arm64 macos-arm64
 
 (
   cd "$OUT"
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum ./*.zip ./*.tar.gz > SHA256SUMS.txt
+    sha256sum "${ASSETS[@]}" > SHA256SUMS.txt
   else
-    shasum -a 256 ./*.zip ./*.tar.gz > SHA256SUMS.txt
+    shasum -a 256 "${ASSETS[@]}" > SHA256SUMS.txt
   fi
 )
 

@@ -52,11 +52,13 @@ jobs:
       - name: Package release
         run: bash scripts/package.sh "$VERSION"
 
-      - name: Keep packaged files as a workflow artifact
+      - name: Keep release binaries as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: InkFerry-${{ env.VERSION }}
-          path: dist/release/
+          path: |
+            dist/release/InkFerry-*
+            dist/release/SHA256SUMS.txt
           if-no-files-found: error
 
       - name: Publish GitHub release

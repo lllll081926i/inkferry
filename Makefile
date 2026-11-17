@@ -31,8 +31,8 @@ macos:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(DIST)/ferry-macos-arm64 ./cmd/ferry
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build $(LDFLAGS) -o $(DIST)/ferryinstall-macos-arm64 ./cmd/ferryinstall
 
-# Build every supported target and create the archives uploaded by a GitHub
-# Release. The script also writes SHA256SUMS.txt.
+# Build every supported target as one self-contained executable per platform
+# and write SHA256SUMS.txt. No archives, no documentation, no extra tools.
 package:
 	VERSION="$(VERSION)" ./scripts/package.sh
 

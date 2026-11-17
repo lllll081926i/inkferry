@@ -43,18 +43,36 @@ InkFerry 换了一条路：
 
 ## 下载
 
-前往 [Releases](https://github.com/lllll081926i/inkferry/releases/latest) 下载最新版本：
+前往 [Releases](https://github.com/lllll081926i/inkferry/releases/latest) 下载最新版本。全部文件都是便携版：一个自包含的可执行文件，双击就运行，不需要安装、不需要额外的 DLL 或运行时。
+
+图形界面版（日常使用选这个）：
 
 | 平台 | 文件 |
 |---|---|
-| Windows x64 | `InkFerry-<version>-windows-amd64.zip` |
-| Windows ARM64 | `InkFerry-<version>-windows-arm64.zip` |
-| Linux x64 | `InkFerry-<version>-linux-amd64.tar.gz` |
-| macOS Apple Silicon | `InkFerry-<version>-macos-arm64.tar.gz` |
+| Windows x64 | `InkFerry-<version>-windows-amd64-gui.exe` |
+| Windows ARM64 | `InkFerry-<version>-windows-arm64-gui.exe` |
+| Linux x64 | `InkFerry-<version>-linux-amd64-gui` |
+| macOS Apple Silicon | `InkFerry-<version>-macos-arm64-gui` |
 
-每个压缩包都包含图形界面 `InkFerry`、批处理命令行 `ferry`、组件安装工具 `ferryinstall`、README、更新日志和许可证。下载页同时提供 `SHA256SUMS.txt`。
+命令行版（脚本与批处理选这个）：
 
-> **macOS 提示**：当前发布包没有 Apple 开发者签名。首次运行前可能需要在“系统设置 → 隐私与安全性”中允许，或对解压后的可执行文件执行 `xattr -dr com.apple.quarantine inkferry`。
+| 平台 | 文件 |
+|---|---|
+| Windows x64 | `InkFerry-<version>-windows-amd64-cli.exe` |
+| Windows ARM64 | `InkFerry-<version>-windows-arm64-cli.exe` |
+| Linux x64 | `InkFerry-<version>-linux-amd64-cli` |
+| macOS Apple Silicon | `InkFerry-<version>-macos-arm64-cli` |
+
+下载页同时提供 `SHA256SUMS.txt`。发行版不包含文档、截图、安装包和日志：程序运行后不在磁盘上留下配置、缓存或日志文件，转换完的临时文件会被删除。
+
+Windows 版下载后直接运行 `.exe`。图形界面版不会弹出控制台窗口；命令行版本身就是一个控制台程序。Linux 与 macOS 版首次运行前需要赋予执行权限：
+
+```bash
+chmod +x InkFerry-<version>-linux-amd64-gui
+chmod +x InkFerry-<version>-linux-amd64-cli
+```
+
+> **macOS 提示**：当前发行文件没有 Apple 开发者签名。首次运行前可能需要在“系统设置 → 隐私与安全性”中允许，或对可执行文件执行 `xattr -dr com.apple.quarantine <文件名>`。
 
 ## 支持的格式
 
@@ -64,7 +82,7 @@ InkFerry 换了一条路：
 | PDF、DOCX、TXT | EPUB、PDF、DOCX、TXT | MOBI、AZW3 |
 
 - **内置引擎**负责文本抽取、章节重建和 EPUB / PDF / DOCX / TXT 写出，不需要额外安装任何东西。
-- **MOBI / AZW3 输出**使用可选的 Calibre 桥接组件。运行 `ferryinstall` 即可安装；发布包中已附带该工具。
+- **MOBI / AZW3 输出**使用可选的 Calibre 桥接组件。在图形界面里点“安装 Calibre”即可下载；这是程序唯一会写入外部文件的操作，组件装在系统配置目录的 `InkFerry` 文件夹里（Windows 上通常是 `%APPDATA%\InkFerry`）。不安装也能正常使用其它格式。
 - PDF 输出是按正文重新排版，不保留原书的复杂版式；这与多数同类转换器的行为一致。
 
 ## 使用
@@ -88,29 +106,34 @@ inkferry -to epub a.txt b.pdf 启动后立即把文件加入队列
 
 ## 命令行
 
-图形界面之外还有两个小工具，使用同一个转换引擎。
+命令行版 `...-cli` 与图形界面共用同一个转换引擎，不带界面，适合脚本与批处理。
 
 ### `ferry`：无界面批量转换
 
+发行版里的 `...-cli` 就是 `ferry` 的构建产物，行为完全一致。
+
 ```bash
 # 转成 EPUB
-ferry -to epub book.pdf notes.docx
+InkFerry-1.0.1-windows-amd64-cli.exe -to epub book.pdf notes.docx
 
 # 转成 PDF
-ferry -to pdf book.epub
+InkFerry-1.0.1-windows-amd64-cli.exe -to pdf book.epub
 
 # 支持的目标格式：epub, mobi, azw3, pdf, txt, docx
 ```
 
-`ferry` 会等到所有任务结束，逐行打印状态；任一任务失败时以非零状态退出，适合放进脚本或 CI。
+它会等到所有任务结束，逐行打印状态；任一任务失败时以非零状态退出，适合放进脚本或 CI。
 
 ### `ferryinstall`：安装可选组件
 
+安装 Calibre 桥接组件的命令行工具，只从源码构建，不随发行版提供：
+
 ```bash
-ferryinstall
+go build -trimpath -ldflags "-s -w" -o dist/ferryinstall ./cmd/ferryinstall
+./dist/ferryinstall
 ```
 
-组件保存在系统配置目录下的 `InkFerry` 文件夹中。Windows 上通常是 `%APPDATA%\InkFerry`。
+组件保存在系统配置目录下的 `InkFerry` 文件夹中。Windows 上通常是 `%APPDATA%\InkFerry`。图形界面里的“安装 Calibre”做的是同一件事，通常更方便。
 
 ## 从源码构建
 
@@ -118,7 +141,7 @@ ferryinstall
 
 - Go **1.27.3** 或更高版本
 - 无需 Node.js、npm、CGO 或平台 SDK
-- 打包脚本需要 `bash`；GitHub Actions 使用 Ubuntu 和 `zip`
+- 打包脚本需要 `bash`
 
 ### 本地构建
 
@@ -131,7 +154,7 @@ make all           # 构建 Windows、Linux、macOS
 make package VERSION=v1.0.0
 ```
 
-`make all` 的产物位于 `dist/`。`make package` 会重新构建全部平台，并在 `dist/release/` 生成可直接上传到 GitHub Release 的压缩包和校验和。
+`make all` 的产物位于 `dist/`。`make package` 会重新构建全部平台，并在 `dist/release/` 生成本平台的图形界面与命令行可执行文件以及 `SHA256SUMS.txt`，可直接上传到 GitHub Release。
 
 单独构建当前平台：
 
@@ -154,7 +177,7 @@ git push origin v1.0.0
 
 1. 在干净的 Ubuntu 环境中运行测试；
 2. 交叉编译四个目标平台；
-3. 生成 ZIP / tar.gz 和 `SHA256SUMS.txt`；
+3. 生成各平台的自包含可执行文件和 `SHA256SUMS.txt`；
 4. 创建 GitHub Release 并上传全部产物。
 
 也可以在 Actions 页面手动运行 Release 工作流，填入一个已经存在的标签。
